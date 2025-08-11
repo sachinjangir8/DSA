@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Visual Chess</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(120deg, #f7f7f7, #ddd);
+      font-family: 'Segoe UI', sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    h1 {
+      font-size: 2.5rem;
+      color: #333;
+      margin-bottom: 1rem;
+    }
+
+    #board {
+      display: grid;
+      grid-template-columns: repeat(8, 70px);
+      grid-template-rows: repeat(8, 70px);
+      border: 4px solid #444;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .cell {
+      width: 70px;
+      height: 70px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      font-size: 42px;
+      cursor: pointer;
+      transition: background 0.2s ease;
+      position: relative;
+    }
+
+    .white { background-color: #f0d9b5; }
+    .black { background-color: #b58863; color: white; }
+
+    .cell:hover {
+      filter: brightness(1.15);
+    }
+
+    .selected {
+      outline: 4px solid #ff4444;
+      z-index: 2;
+    }
+
+    .move-option::after {
+      content: "";
+      position: absolute;
+      width: 18px;
+      height: 18px;
+      background-color: rgba(0, 255, 0, 0.4);
+      border-radius: 50%;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+    }
+
+    .attack-option {
+      background-color: #ff6666 !important;
+    }
+
+    #status {
+      margin-top: 20px;
+      font-size: 1.2rem;
+      font-weight: bold;
+      color: #333;
+    }
+
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      font-size: 16px;
+      background-color: #333;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+      transition: background-color 0.2s ease, transform 0.2s ease;
+    }
+
+    button:hover {
+      background-color: #555;
+      transform: scale(1.05);
+    }
+
+    button:active {
+      transform: scale(0.98);
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Visual Chess</h1>
+  <div id="board"></div>
+  <div id="status">White's Turn</div>
+  <button onclick="initGame()">Restart Game</button>
+
+  <script>
+    const boardEl = document.getElementById('board');
+    const statusEl = document.getElementById('status');
+
+    let board = [];
+    let selected = null;
+    let turn = 'white';
+
+    const pieces = {
+      'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
+      'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙'
+    };
+
+    const initialSetup = [
+      ['r','n','b','q','k','b','n','r'],
+      ['p','p','p','p','p','p','p','p'],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['','','','','','','',''],
+      ['P','P','P','P','P','P','P','P'],
+      ['R','N','B','Q','K','B','N','R'],
+    ];
+
+    function createBoard() {
+      boardEl.innerHTML = '';
+      for (let row = 0; row < 8; row++) {
+        for (let col = 0; col < 8; col++) {
+          const cell = document.createElement('div');
+          cell.className = 'cell ' + ((row + col) % 2 === 0 ? 'white' : 'black');
+          cell.dataset.row = row;
+          cell.dataset.col = col;
+          boardEl.appendChild(cell);
+        }
+      }
+    }
+
+    function renderBoard(highlightMoves = []) {
+      const cells = boardEl.querySelectorAll('.cell');
+      cells.forEach(cell => {
+        const row = parseInt(cell.dataset.row);
+        const col = parseInt(cell.dataset.col);
+        const piece = board[row][col];
+        cell.textContent = pieces[piece] || '';
+        cell.classList.remove('selected', 'move-option', 'attack-option');
+        if (selected && selected.row == row && selected.col == col) {
+          cell.classList.add('selected');
+        }
+      });
+
+      highlightMoves.forEach(({ row, col, type }) => {
+        const cell = boardEl.querySelector(`.cell[data-row="${row}"][data-col="${col}"]`);
+        cell.classList.add(type === 'attack' ? 'attack-option' : 'move-option');
+      });
+    }
+
+    function handleClick(e) {
+      const cell = e.target.closest('.cell');
+      if (!cell) return;
+
+      const row = parseInt(cell.dataset.row);
+      const col = parseInt(cell.dataset.col);
+      const piece = board[row][col];
+
+      if (selected) {
+        const selPiece = board[selected.row][selected.col];
+        const moves = getLegalMoves(selPiece, selected.row, selected.col);
+
+        const clickedMove = moves.find(m => m.row === row && m.col === col);
+        if (clickedMove) {
+          board[row][col] = selPiece;
+          board[selected.row][selected.col] = '';
+          turn = turn === 'white' ? 'black' : 'white';
+          statusEl.textContent = `${turn.charAt(0).toUpperCase() + turn.slice(1)}'s Turn`;
+        }
+
+        selected = null;
+        renderBoard();
+      } else {
+        if (piece && ((turn === 'white' && isWhite(piece)) || (turn === 'black' && isBlack(piece)))) {
+          selected = { row, col };
+          const selPiece = board[selected.row][selected.col];
+          const moves = getLegalMoves(selPiece, selected.row, selected.col);
+          renderBoard(moves);
+        }
+      }
+    }
+
+    function isWhite(piece) {
+      return piece === piece.toUpperCase();
+    }
+
+    function isBlack(piece) {
+      return piece === piece.toLowerCase();
+    }
+
+    function getLegalMoves(piece, fromRow, fromCol) {
+      const moves = [];
+      for (let r = 0; r < 8; r++) {
+        for (let c = 0; c < 8; c++) {
+          if (isLegalMove(piece, fromRow, fromCol, r, c)) {
+            const target = board[r][c];
+            moves.push({ row: r, col: c, type: target ? 'attack' : 'move' });
+          }
+        }
+      }
+      return moves;
+    }
+
+    function isLegalMove(piece, fromRow, fromCol, toRow, toCol) {
+      const target = board[toRow][toCol];
+      const dx = toCol - fromCol;
+      const dy = toRow - fromRow;
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      if ((fromRow === toRow && fromCol === toCol) || (target && isWhite(target) === isWhite(piece)))
+        return false;
+
+      switch (piece.toLowerCase()) {
+        case 'p': {
+          const dir = isWhite(piece) ? -1 : 1;
+          const startRow = isWhite(piece) ? 6 : 1;
+          if (dx === 0 && !target) {
+            if (dy === dir) return true;
+            if (fromRow === startRow && dy === 2 * dir && !board[fromRow + dir][fromCol]) return true;
+          }
+          if (absDx === 1 && dy === dir && target) return true;
+          return false;
+        }
+
+        case 'r':
+          if (dx !== 0 && dy !== 0) return false;
+          return pathClear(fromRow, fromCol, toRow, toCol);
+
+        case 'n':
+          return (absDx === 1 && absDy === 2) || (absDx === 2 && absDy === 1);
+
+        case 'b':
+          if (absDx !== absDy) return false;
+          return pathClear(fromRow, fromCol, toRow, toCol);
+
+        case 'q':
+          if (absDx === absDy || dx === 0 || dy === 0)
+            return pathClear(fromRow, fromCol, toRow, toCol);
+          return false;
+
+        case 'k':
+          return absDx <= 1 && absDy <= 1;
+
+        default:
+          return false;
+      }
+    }
+
+    function pathClear(fromRow, fromCol, toRow, toCol) {
+      const stepRow = Math.sign(toRow - fromRow);
+      const stepCol = Math.sign(toCol - fromCol);
+      let r = fromRow + stepRow;
+      let c = fromCol + stepCol;
+      while (r !== toRow || c !== toCol) {
+        if (board[r][c] !== '') return false;
+        r += stepRow;
+        c += stepCol;
+      }
+      return true;
+    }
+
+    function initGame() {
+      board = JSON.parse(JSON.stringify(initialSetup));
+      selected = null;
+      turn = 'white';
+      createBoard();
+      renderBoard();
+      statusEl.textContent = "White's Turn";
+    }
+
+    boardEl.addEventListener('click', handleClick);
+    initGame();
+  </script>
+</body>
+</html>

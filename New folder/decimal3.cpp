@@ -15,7 +15,8 @@ int decimal(int bin)
 }
 int main()
 {
-    int binary = 14;
+    int binary = 1011;
     cout << decimal(binary);
+    cout << endl;
     return 0;
 }

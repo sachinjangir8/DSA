@@ -8,8 +8,8 @@
       "args": [],
       "stopAtEntry": false,
       "externalConsole": true,
-      "cwd": "d:/from d/development and data science/DSA IN CPP/dsa in cpp/New folder",
-      "program": "d:/from d/development and data science/DSA IN CPP/dsa in cpp/New folder/build/Debug/outDebug",
+      "cwd": "d:/from d/development and data science/DSA IN CPP/dsa in cpp/05_2D_arrays",
+      "program": "d:/from d/development and data science/DSA IN CPP/dsa in cpp/05_2D_arrays/build/Debug/outDebug",
       "MIMode": "gdb",
       "miDebuggerPath": "gdb",
       "setupCommands": [
